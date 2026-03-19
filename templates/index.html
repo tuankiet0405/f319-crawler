@@ -481,7 +481,7 @@ function renderResults(data, elapsed) {
             <td colspan="2">${status}</td>
             <td><span class="badge badge-full">${user.full_content_count || 0} full</span></td>
             <td>${user.filename
-                ? `<a href="/download/${user.filename}">📥 CSV</a>`
+                ? `<a href="/download/${user.filename}" download="${user.filename}">📥 CSV</a>`
                 : '—'}</td>`;
         resultsBody.appendChild(row);
     });
@@ -489,7 +489,7 @@ function renderResults(data, elapsed) {
     // Downloads
     downloadBar.innerHTML = '';
     data.files.forEach(f => {
-        downloadBar.innerHTML += `<a href="/download/${f}" class="btn btn-download">📥 ${f}</a>`;
+        downloadBar.innerHTML += `<a href="/download/${f}" download="${f}" class="btn btn-download">📥 ${f}</a>`;
     });
 
     resultsArea.classList.add('active');
