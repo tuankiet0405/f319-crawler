@@ -352,6 +352,9 @@ const resultsBody = document.getElementById('resultsBody');
 const statsGrid = document.getElementById('statsGrid');
 const downloadBar = document.getElementById('downloadBar');
 
+let pollTimer = null;
+let lastLogIndex = 0;
+
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -360,6 +363,7 @@ form.addEventListener('submit', async (e) => {
     inputIds.classList.remove('error');
     resultsArea.classList.remove('active');
     progressLog.innerHTML = '';
+    lastLogIndex = 0;
 
     const userIds = inputIds.value.trim();
     if (!userIds) {
@@ -372,33 +376,65 @@ form.addEventListener('submit', async (e) => {
     progressArea.classList.add('active');
     btnCrawl.disabled = true;
     btnCrawl.innerHTML = '<div class="spinner"></div> Đang xử lý...';
-    addLog('Bắt đầu crawl...');
 
     const formData = new FormData(form);
     const startTime = Date.now();
 
     try {
+        // Step 1: Start job (returns immediately)
         const res = await fetch('/crawl', { method: 'POST', body: formData });
         const data = await res.json();
 
         if (!res.ok) {
             showError(data.error || 'Đã xảy ra lỗi');
-            progressArea.classList.remove('active');
+            resetUI();
             return;
         }
 
-        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        addLog(`✅ Hoàn tất trong ${elapsed}s — ${data.total_posts} bài viết`);
-        renderResults(data, elapsed);
+        const jobId = data.job_id;
+        addLog('🚀 Job started — polling for progress...');
+
+        // Step 2: Poll for status
+        pollTimer = setInterval(async () => {
+            try {
+                const statusRes = await fetch(`/status/${jobId}`);
+                const statusData = await statusRes.json();
+
+                // Stream new progress lines
+                if (statusData.progress) {
+                    for (let i = lastLogIndex; i < statusData.progress.length; i++) {
+                        addLog(statusData.progress[i]);
+                    }
+                    lastLogIndex = statusData.progress.length;
+                }
+
+                // Check completion
+                if (statusData.status === 'done') {
+                    clearInterval(pollTimer);
+                    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                    renderResults(statusData.results, elapsed);
+                    resetUI();
+                } else if (statusData.status === 'error') {
+                    clearInterval(pollTimer);
+                    showError(statusData.error || 'Crawl failed');
+                    resetUI();
+                }
+            } catch (pollErr) {
+                // Network error during polling — retry silently
+            }
+        }, 1000);
 
     } catch (err) {
         showError('Không thể kết nối tới server. Vui lòng thử lại.');
-    } finally {
-        btnCrawl.disabled = false;
-        btnCrawl.innerHTML = '🚀 Bắt đầu Crawl';
-        setTimeout(() => progressArea.classList.remove('active'), 1500);
+        resetUI();
     }
 });
+
+function resetUI() {
+    btnCrawl.disabled = false;
+    btnCrawl.innerHTML = '🚀 Bắt đầu Crawl';
+    setTimeout(() => progressArea.classList.remove('active'), 2000);
+}
 
 function showError(msg) {
     errorMsg.textContent = msg;
@@ -430,15 +466,8 @@ function renderResults(data, elapsed) {
             </div>`;
     });
 
-    // Table — collect all posts from all users
+    // Per-user rows
     resultsBody.innerHTML = '';
-    let idx = 0;
-    data.results.forEach(user => {
-        if (!user.post_count) return;
-        // We don't have individual posts in the response, show user summaries
-    });
-
-    // Since the API returns summary, show per-user rows
     data.results.forEach((user, i) => {
         const row = document.createElement('tr');
         const status = user.error

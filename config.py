@@ -6,8 +6,8 @@ SEARCH_URL = f"{BASE_URL}/search/member"
 POST_URL = f"{BASE_URL}/posts"
 
 # Crawling settings
-REQUEST_TIMEOUT = 15              # seconds per request
-FULL_CONTENT_DELAY = 0.8          # seconds between full-content requests (keep low for speed)
+REQUEST_TIMEOUT = 8               # seconds per request (fail fast)
+FULL_CONTENT_DELAY = 0.3          # seconds between full-content requests
 MAX_FULL_CONTENT_POSTS = 10       # default: only get full content for top 10 posts (0=all, -1=none)
 SKIP_LONG_POSTS = True            # skip posts longer than threshold
 LONG_POST_THRESHOLD = 5000        # characters

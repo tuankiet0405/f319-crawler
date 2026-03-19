@@ -3,6 +3,7 @@
 import logging
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 
@@ -136,7 +137,7 @@ def _fetch_all_search_pages(
         page += 1
 
         if url:
-            time.sleep(0.3)  # light delay between search pages
+            time.sleep(0.1)  # minimal delay between search pages
 
     return all_posts
 
@@ -147,18 +148,19 @@ def _fetch_full_contents(
     limit: int,
     progress,
 ):
-    """Fetch full content for the first `limit` posts."""
+    """Fetch full content for the first `limit` posts using parallel threads."""
     to_fetch = posts[:limit]
     progress(f"  Đang lấy full content cho {len(to_fetch)}/{len(posts)} bài viết...")
 
-    for i, post in enumerate(to_fetch, 1):
+    completed = [0]  # mutable counter for thread-safe incrementing
+
+    def _fetch_one(post):
         post_id = post.get("post_id")
         if not post_id:
-            continue
+            return
 
         try:
             url = f"{POST_URL}/{post_id}/"
-            progress(f"  [{i}/{len(to_fetch)}] Lấy bài #{post_id}...")
             response = session.get(url, timeout=REQUEST_TIMEOUT, allow_redirects=True)
             response.raise_for_status()
 
@@ -168,7 +170,7 @@ def _fetch_full_contents(
                 logger.info(
                     f"Skipped post {post_id} - content too long ({len(content)} chars)"
                 )
-                continue
+                return
 
             if content:
                 post["full_content"] = content
@@ -176,5 +178,12 @@ def _fetch_full_contents(
         except requests.RequestException as e:
             logger.warning(f"Lỗi lấy bài #{post_id}: {e}")
 
-        if i < len(to_fetch):
-            time.sleep(FULL_CONTENT_DELAY)
+        time.sleep(FULL_CONTENT_DELAY)  # rate limit per request
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = {executor.submit(_fetch_one, post): post for post in to_fetch}
+        for future in as_completed(futures):
+            completed[0] += 1
+            progress(f"  [{completed[0]}/{len(to_fetch)}] Full content...")
+            future.result()  # propagate exceptions if any
+
