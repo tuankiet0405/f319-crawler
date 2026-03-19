@@ -74,6 +74,7 @@ def _run_crawl(job_id, users, full_content_limit, max_posts):
                         "post_count": len(posts),
                         "filename": filename,
                         "full_content_count": sum(1 for p in posts if p.get("content_type") == "full"),
+                        "posts": posts,  # Include for client-side CSV download
                     })
                 else:
                     results.append({
@@ -82,6 +83,7 @@ def _run_crawl(job_id, users, full_content_limit, max_posts):
                         "post_count": 0,
                         "filename": None,
                         "full_content_count": 0,
+                        "posts": [],
                     })
             except Exception as e:
                 logger.error(f"[Job {job_id[:8]}] Error crawling {username}: {e}")
