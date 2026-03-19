@@ -186,12 +186,16 @@ def download(filename):
     filepath = os.path.join(OUTPUT_DIR, filename)
     if not os.path.exists(filepath):
         return jsonify({"error": "File not found"}), 404
-    return send_file(
+    
+    response = send_file(
         filepath,
         as_attachment=True,
         download_name=filename,
-        mimetype="text/csv",
+        mimetype="text/csv; charset=utf-8",
     )
+    # Explicit header to ensure browser uses proper filename
+    response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
 
 
 if __name__ == "__main__":
