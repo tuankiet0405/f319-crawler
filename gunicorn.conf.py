@@ -1,10 +1,22 @@
 # Gunicorn configuration for Render deployment
-# This file is auto-detected by gunicorn
+import os
 
-bind = "0.0.0.0:10000"
-workers = 1               # MUST be 1: in-memory job store requires single process
-threads = 4               # handle concurrent requests via threads instead
-timeout = 30              # endpoints return instantly (background jobs)
+# Bind to Render's PORT (required)
+bind = f"0.0.0.0:{os.environ.get('PORT', '10000')}"
+
+# Single worker + threads (required for in-memory job store)
+workers = 1
+threads = 4
+worker_class = "gthread"
+
+# Timeout — endpoints return instantly with background jobs
+timeout = 30
 keepalive = 5
+
+# Logging
 accesslog = "-"
 errorlog = "-"
+loglevel = "info"
+
+# Preload app to catch import errors early
+preload_app = True
